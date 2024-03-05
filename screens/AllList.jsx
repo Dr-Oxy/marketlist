@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useContext} from 'react';
 
 import {
   SafeAreaView,
@@ -13,7 +13,11 @@ import {
 
 import {useNavigation} from '@react-navigation/native';
 
+import {AppContext} from '../utils/appContext';
+
 const AllList = () => {
+  const {allLists} = useContext(AppContext);
+
   const navigation = useNavigation();
 
   const gotoCreate = () => {
@@ -32,14 +36,42 @@ const AllList = () => {
         </View>
 
         <View style={styles.visual}>
-          <Text style={styles.lead}>Let’s go shopping today!</Text>
-          <Text style={styles.sub}>Your list is empty</Text>
+          <Text style={styles.lead}>
+            {allLists?.length < 1
+              ? 'Let’s go shopping today!'
+              : 'Here’s an archive of your lists'}
+          </Text>
+
+          <Text style={styles.sub}>
+            {' '}
+            {allLists?.length < 1
+              ? 'Your list is empty'
+              : 'Click on the list you want to preview'}{' '}
+          </Text>
 
           <ImageBackground
             style={styles.bg}
             source={require('../assets/images/market-1.png')}
           />
         </View>
+
+        {allLists?.map(item => (
+          <View
+            style={{
+              marginBottom: 20,
+            }}
+            key={item.id}>
+            <Text>{item?.name}</Text>
+            {item?.data?.map(i => (
+              <View
+                style={{flexDirection: 'row', justifyContent: 'space-between'}}
+                key={i.id}>
+                <Text>{i.price}</Text>
+                <Text>{i.item}</Text>
+              </View>
+            ))}
+          </View>
+        ))}
 
         <View>
           <Pressable onPress={gotoCreate} style={styles.button}>
