@@ -2,6 +2,8 @@ import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
+import {AppContextProvider} from './utils/appContext';
+
 import Splash from './screens/Splash';
 import AllList from './screens/AllList';
 import CreateList from './screens/CreateList';
@@ -33,9 +35,11 @@ function Routes() {
 
 function App() {
   return (
-    <NavigationContainer>
-      <Routes />
-    </NavigationContainer>
+    <AppContextProvider>
+      <NavigationContainer>
+        <Routes />
+      </NavigationContainer>
+    </AppContextProvider>
   );
 }
 
