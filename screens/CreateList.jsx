@@ -1,25 +1,32 @@
-import React, {useState} from 'react';
+/* eslint-disable react-native/no-inline-styles */
+import React, {useState, useContext, useEffect} from 'react';
 
 import {
   SafeAreaView,
   Text,
-  StyleSheet,
   View,
   TextInput,
   Alert,
   Pressable,
-  Image,
   ScrollView,
-  Platform,
+  Modal,
 } from 'react-native';
 
 import {Dropdown} from 'react-native-element-dropdown';
-import uuid from 'react-native-uuid';
 
+import {styles} from '../styles/Create';
+
+import uuid from 'react-native-uuid';
+import dayjs from 'dayjs';
+import {AppContext} from '../utils/appContext';
 import {measures} from '../utils/dummyData';
+import {formatMoney} from '../utils/helpers';
 
 const CreateList = () => {
-  const [selectedValue, setSelectedValue] = useState('');
+  const {allLists, addList} = useContext(AppContext);
+  const today = dayjs().format('dddd, D MMMM, YYYY');
+
+  const [marketList, setMarketList] = useState([]);
 
   const [listItem, setListItem] = useState({
     id: 0,
@@ -28,10 +35,22 @@ const CreateList = () => {
     qty: '',
   });
 
-  const [marketList, setMarketList] = useState([]);
+  const [selectedValue, setSelectedValue] = useState('');
+
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const [adding, setIsAdding] = useState(false);
+  const [edit, setIsEditing] = useState(false);
 
+  // fill up input fields on edit
+  useEffect(() => {
+    if (selectedItem) {
+      setListItem(selectedItem);
+      setSelectedValue(selectedItem.measure);
+    }
+  }, [selectedItem]);
+
+  // Add list item to marketList
   const handleSubmit = () => {
     setIsAdding(true);
     if (listItem?.item?.length === 0 || listItem?.price === 0) {
@@ -41,13 +60,51 @@ const CreateList = () => {
       const updatedItem = {...listItem, id: uuid.v4(), measure: selectedValue};
       setMarketList(prevMarketList => [...prevMarketList, updatedItem]);
       setIsAdding(false);
-      console.log({updatedItem});
       // Clear the input fields
       setListItem({id: 0, item: '', price: '', qty: ''});
       setSelectedValue('');
     }
   };
 
+  // sum marketlist price
+  const sumPrice = marketList?.reduce((price, item) => price + item.price, 0);
+
+  // delete list item
+  const deleteItem = id => {
+    const filtered = marketList?.filter(item => item.id !== id);
+    setMarketList(filtered);
+  };
+
+  //display item for edit
+
+  const displayItem = item => {
+    setIsEditing(true);
+    const findItem = marketList?.find(i => i.id === item.id);
+
+    setSelectedItem(findItem);
+  };
+
+  //edit list item
+  const handleEditing = () => {
+    const updatedItem = {
+      ...listItem,
+      id: selectedItem?.id,
+      measure: selectedValue,
+    };
+
+    const item = marketList?.find(i => i.id === selectedItem?.id);
+
+    //If items exist in list
+    if (item) {
+      setMarketList(marketList?.map(x => (x.id === item.id ? updatedItem : x)));
+    }
+    setSelectedItem(null);
+    setListItem({id: 0, item: '', price: '', qty: ''});
+    setSelectedValue('');
+    setIsEditing(false);
+  };
+
+  // render component
   const renderItem = item => {
     return (
       <View key={item.id} style={styles.item}>
@@ -59,17 +116,33 @@ const CreateList = () => {
   return (
     <SafeAreaView style={styles.body}>
       <ScrollView style={styles.wrapper}>
-        {/* Logo */}
-        <View style={styles.logoDiv}>
-          <Image
-            style={styles.logo}
-            source={require('../assets/icons/logo.png')}
-          />
-        </View>
-
         <View style={styles.visual}>
           <Text style={styles.lead}>Create a new market list</Text>
           <Text style={styles.sub}>Add items to your list</Text>
+        </View>
+
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.listName}># List {allLists?.length + 1} </Text>
+            <Text style={styles.listDate}>{today}</Text>
+          </View>
+
+          <View>
+            <Pressable
+              onPress={() =>
+                addList({
+                  id: uuid.v4(),
+                  data: marketList,
+                  date: today,
+                  total: sumPrice,
+                  name: `# List ${allLists?.length + 1}`,
+                })
+              }
+              disabled={marketList?.length < 1}
+              style={styles.headerbutton}>
+              <Text style={styles.hbuttonText}>Save List</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.listVisual}>
@@ -86,26 +159,49 @@ const CreateList = () => {
                 </View>
 
                 <View style={styles.listPriceWrap}>
-                  <Text style={styles.listPrice}>{item?.price}</Text>
+                  <Text style={styles.listPrice}>
+                    {formatMoney(item?.price)}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.listBottom}>
-                <Pressable style={[styles.listbutton, styles.edit]}>
-                  <Text style={styles.buttonlistText}>Edit</Text>
+                <Pressable
+                  onPress={() => displayItem(item)}
+                  style={styles.listbutton}>
+                  <Text style={[styles.buttonlistText, styles.edit]}>Edit</Text>
                 </Pressable>
 
-                <Pressable style={[styles.listbutton, styles.delete]}>
-                  <Text style={styles.buttonlistText}>Delete</Text>
+                <Pressable
+                  onPress={() => deleteItem(item?.id)}
+                  style={styles.listbutton}>
+                  <Text style={[styles.buttonlistText, styles.delete]}>
+                    Delete
+                  </Text>
                 </Pressable>
               </View>
             </View>
           ))}
+
+          <View style={styles.totalPrice}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+              <Text style={styles.totalPriceText}>Total:</Text>
+              <Text style={styles.totalPriceText}>
+                ₦ {formatMoney(sumPrice)}
+              </Text>
+            </View>
+            <Text style={styles.warning}>
+              Always remember to carry more cash than budgeted, inflation is
+              real.
+            </Text>
+          </View>
         </View>
 
         <View style={styles.form}>
           <View>
-            <Text style={styles.label}>What're you buying?</Text>
+            <Text style={styles.label}>
+              {edit ? 'Edit list item' : 'What are you buying?'}
+            </Text>
             <TextInput
               value={listItem.item}
               placeholder="red bell pepper"
@@ -176,264 +272,22 @@ const CreateList = () => {
           </View>
 
           <View>
-            <Pressable style={styles.button} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>
-                {adding ? 'Adding..' : 'Add Item'}
-              </Text>
-            </Pressable>
+            {edit ? (
+              <Pressable onPress={handleEditing} style={styles.button}>
+                <Text style={styles.buttonText}>Edit Item</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.button} onPress={handleSubmit}>
+                <Text style={styles.buttonText}>
+                  {adding ? 'Adding..' : 'Add Item'}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  body: {
-    backgroundColor: '#F9F9F9',
-    flex: 1,
-  },
-  wrapper: {
-    paddingTop: 30,
-  },
-
-  logoDiv: {
-    borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.3)',
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-
-  visual: {
-    marginVertical: 32,
-    paddingHorizontal: 20,
-  },
-
-  lead: {
-    fontSize: 32,
-    color: 'black',
-    fontWeight: '500',
-    marginBottom: 8,
-    fontFamily: 'Lora',
-  },
-
-  sub: {
-    fontSize: 16,
-    color: '#7B7B7B',
-    fontFamily: 'Lora',
-  },
-
-  //  list styling
-
-  listVisual: {
-    marginBottom: 20,
-    backgroundColor: 'transparent',
-    paddingVertical: 10,
-  },
-
-  listHeader: {},
-
-  listContainer: {
-    padding: 20,
-    backgroundColor: '#F9F9F9',
-    marginBottom: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0, 0, 0, 0.2)',
-        shadowOffset: {width: 0, height: 4},
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-
-  listTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 20,
-    marginBottom: 20,
-  },
-
-  listItemWrap: {
-    flex: 1,
-  },
-
-  listItem: {
-    fontSize: 20,
-    color: 'black',
-    fontWeight: '600',
-    fontFamily: 'Lora',
-  },
-
-  listQtyWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  listQty: {
-    fontSize: 18,
-    color: '#BDB8B8',
-    fontWeight: '700',
-    fontFamily: 'Lora',
-  },
-
-  listPriceWrap: {},
-
-  listPrice: {
-    fontSize: 18,
-    color: 'black',
-    fontFamily: 'Lora',
-  },
-
-  listBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    width: 200,
-    marginLeft: 'auto',
-  },
-
-  listbutton: {
-    paddingVertical: 10,
-    borderRadius: 8,
-    flex: 1,
-  },
-
-  buttonlistText: {
-    fontWeight: '600',
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    fontFamily: 'Lora',
-  },
-
-  edit: {
-    backgroundColor: 'black',
-  },
-
-  delete: {
-    backgroundColor: '#E15151',
-  },
-
-  // Form styling
-  form: {
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 40,
-    borderRadius: 10,
-  },
-
-  label: {
-    fontSize: 16,
-    color: 'black',
-    marginBottom: 10,
-    fontFamily: 'Lora',
-  },
-
-  inputField: {
-    backgroundColor: 'white',
-    color: 'black',
-    fontSize: 18,
-    fontFamily: 'Lora',
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#0BDE53',
-  },
-
-  qtyWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginVertical: 20,
-  },
-
-  select: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  selectDrop: {
-    // height: 50,
-    backgroundColor: 'white',
-    color: 'black',
-    fontSize: 18,
-    fontFamily: 'Lora',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#0BDE53',
-  },
-
-  placeholderStyle: {
-    fontSize: 16,
-    fontFamily: 'Lora',
-  },
-  selectedTextStyle: {
-    fontSize: 16,
-    fontFamily: 'Lora',
-  },
-  inputSearchStyle: {
-    height: 40,
-    fontSize: 16,
-    fontFamily: 'Lora',
-  },
-
-  item: {
-    padding: 10,
-  },
-  textItem: {
-    fontSize: 16,
-    fontFamily: 'Lora',
-  },
-
-  measure: {
-    flex: 1,
-  },
-
-  qty: {
-    width: 100,
-  },
-
-  price: {
-    flex: 1,
-    marginBottom: 20,
-  },
-
-  button: {
-    backgroundColor: '#3CCF6E',
-    paddingVertical: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4CDD7E',
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(60, 207, 110, 0.3)',
-        shadowOffset: {width: 0, height: 4},
-        shadowOpacity: 0.8,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  buttonText: {
-    fontWeight: '600',
-    color: 'white',
-    fontSize: 20,
-    textAlign: 'center',
-    fontFamily: 'Lora',
-  },
-});
 
 export default CreateList;
